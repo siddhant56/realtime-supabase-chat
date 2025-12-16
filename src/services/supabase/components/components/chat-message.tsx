@@ -2,7 +2,8 @@ import Image from "next/image";
 import { Message } from "../../actions/messages";
 import { User2Icon } from "lucide-react";
 
-const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+// Use a fixed locale so server and client render the same string
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   dateStyle: "short",
   timeStyle: "short",
 });
@@ -28,7 +29,9 @@ export function ChatMessage({ text, author, created_at }: Message) {
       <div className="grow space-y-0.5">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold">{author.name}</span>
-          <span>{DATE_FORMATTER.format(new Date(created_at))}</span>
+          <span suppressHydrationWarning>
+            {DATE_FORMATTER.format(new Date(created_at))}
+          </span>
         </div>
         <p className="text-sm wrap-break-words whitespace-pre">{text}</p>
       </div>

@@ -46,7 +46,7 @@ export function RoomClient({
         }}
       >
         <div>
-          {liveMessages.toReversed().map((message) => (
+          {liveMessages.map((message) => (
             <ChatMessage key={message.id} {...message} />
           ))}
         </div>
@@ -73,15 +73,17 @@ function useRealtimeChat({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   useEffect(() => {
     const supabase = createClient();
-    let newChannel: RealtimeChannel;
-    let cancel = false;
-    supabase.realtime.setAuth().then(() => {
-      if (cancel) {
-        return;
-      }
+    let newChannel: RealtimeChannel | null = null;
+    let cancelled = false;
+
+    const token = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY;
+
+    const setupChannel = () => {
+      if (cancelled) return;
+
       newChannel = supabase.channel(`room:${roomId}:messages`, {
         config: {
-          private: true,
+          // Public channel; presence works with anon JWT
           presence: {
             key: userId,
           },
@@ -90,9 +92,11 @@ function useRealtimeChat({
 
       newChannel
         .on("presence", { event: "sync" }, () => {
+          if (!newChannel) return;
           setConnectedUsers(Object.keys(newChannel.presenceState()).length);
         })
         .on("broadcast", { event: "message_created" }, (payload) => {
+          console.log("broadcast payload", payload);
           const record = payload.payload as {
             id: string;
             text: string;
@@ -116,19 +120,35 @@ function useRealtimeChat({
           ]);
         })
         .subscribe((status) => {
-          if (status !== "SUBSCRIBED") {
+          console.log("realtime status", status);
+          if (status !== "SUBSCRIBED" || !newChannel) {
             return;
           }
+          console.log("realtime subscribed, tracking presence");
 
           newChannel.track({ userId });
         });
-    });
+    };
+
+    // If we have a Supabase JWT (anon key is a JWT), set it for Realtime first.
+    if (token) {
+      supabase.realtime
+        .setAuth(token)
+        .then(() => {
+          setupChannel();
+        })
+        .catch(() => {
+          // fall back to unauthenticated channel
+          setupChannel();
+        });
+    } else {
+      setupChannel();
+    }
+    console.log("setting up channel", roomId, userId);
 
     return () => {
-      cancel = true;
-      if (!newChannel) {
-        return;
-      }
+      cancelled = true;
+      if (!newChannel) return;
       newChannel.untrack({ userId });
       newChannel.unsubscribe();
     };

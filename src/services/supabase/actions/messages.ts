@@ -1,5 +1,6 @@
 "use server";
 import { getCurrentUser } from "../lib/getCurrentUser";
+import { ensureUserProfileForCurrentUser } from "../lib/ensureUserProfile";
 import { createAdminClient } from "../server";
 
 export type Message = {
@@ -28,13 +29,18 @@ export async function sendMessage(data: {
     return { error: true, message: "Cant be admin" };
   }
 
+  const profile = await ensureUserProfileForCurrentUser();
+  if (profile == null) {
+    return { error: true, message: "Failed To Load User Profile" };
+  }
+
   const supabase = await createAdminClient();
 
   const { data: membership, error: memberShipError } = await supabase
     .from("chat_room_member")
     .select("member_id")
     .eq("chat_room_id", data.roomId)
-    .eq("member_id", user.id)
+    .eq("member_id", profile.id)
     .single();
 
   console.log("membership", membership, data.roomId, user.id);
@@ -48,7 +54,7 @@ export async function sendMessage(data: {
     .insert({
       text: data.text.trim(),
       chat_room_id: data.roomId,
-      author_id: user.id,
+      author_id: profile.id,
     })
     .select(
       "id , text, created_at, author_id, author:user_profile (name,image_url)"

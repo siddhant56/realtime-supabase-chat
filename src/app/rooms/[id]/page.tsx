@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/services/supabase/lib/getCurrentUser";
+import { ensureUserProfileForCurrentUser } from "@/services/supabase/lib/ensureUserProfile";
 import { createAdminClient } from "@/services/supabase/server";
 import { notFound } from "next/navigation";
 import { RoomClient } from "./_client";
@@ -9,33 +10,38 @@ export default async function RoomPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [room, user, messages] = await Promise.all([
-    getRoom(id),
-    getUser(),
+
+  const user = await getCurrentUser();
+  if (user == null) {
+    return notFound();
+  }
+
+  const profile = await ensureUserProfileForCurrentUser();
+  if (profile == null) {
+    return notFound();
+  }
+
+  const [room, messages] = await Promise.all([
+    getRoom(id, user.id),
     getMessages(id),
   ]);
 
   console.log("room logger", room);
 
-  if (room == null || user == null) {
+  if (room == null) {
     return notFound();
   }
-  return <RoomClient room={room} user={user} messages={messages} />;
+  return <RoomClient room={room} user={profile} messages={messages} />;
 }
 
-async function getRoom(id: string) {
-  const user = await getCurrentUser();
-  if (user == null) {
-    return null;
-  }
-
+async function getRoom(id: string, userId: string) {
   const supabase = await createAdminClient();
 
   const { data: room, error } = await supabase
     .from("chat_room")
     .select("id, name, chat_room_member!inner ()")
     .eq("id", id)
-    .eq("chat_room_member.member_id", user.id)
+    .eq("chat_room_member.member_id", userId)
     .single();
 
   if (error) {
@@ -43,27 +49,6 @@ async function getRoom(id: string) {
   }
 
   return room;
-}
-
-async function getUser() {
-  const user = await getCurrentUser();
-  const supabase = await createAdminClient();
-
-  if (user == null) {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("user_profile")
-    .select("id, name,image_url")
-    .eq("id", user.id)
-    .single();
-
-  if (error) {
-    return null;
-  }
-
-  return data;
 }
 
 async function getMessages(roomId: string) {

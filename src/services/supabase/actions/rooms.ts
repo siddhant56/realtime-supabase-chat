@@ -3,6 +3,7 @@
 import { createRoomSchema } from "@/services/schemas/rooms";
 import z from "zod";
 import { getCurrentUser } from "../lib/getCurrentUser";
+import { ensureUserProfileForCurrentUser } from "../lib/ensureUserProfile";
 import { createAdminClient, createClient } from "../server";
 import { redirect } from "next/navigation";
 
@@ -19,6 +20,11 @@ export async function createRoom(unsafeData: z.infer<typeof createRoomSchema>) {
     return { error: true, message: "User Not Authenticated" };
   }
 
+  const profile = await ensureUserProfileForCurrentUser();
+  if (profile == null) {
+    return { error: true, message: "Failed To Load User Profile" };
+  }
+
   const supabase = await createAdminClient();
 
   const { data: room, error: roomError } = await supabase
@@ -33,7 +39,7 @@ export async function createRoom(unsafeData: z.infer<typeof createRoomSchema>) {
 
   const { error: memberShipError } = await supabase
     .from("chat_room_member")
-    .insert({ chat_room_id: room.id, member_id: user.id });
+    .insert({ chat_room_id: room.id, member_id: profile.id });
 
   if (memberShipError) {
     return { error: true, message: "Failed To Add User To Room" };

@@ -25,8 +25,10 @@ import { LeaveRoomButton } from "@/services/supabase/components/components/leave
 
 export default async function Home() {
   const user = await getCurrentUser();
+  // Middleware already protects this route. If we somehow get here without a user,
+  // just render nothing instead of causing another redirect loop.
   if (user === null) {
-    redirect("/auth/login");
+    return null;
   }
   const [publicRooms, joinedRooms] = await Promise.all([
     getPublicRooms(),
@@ -106,7 +108,7 @@ function RoomCard({
   id: string;
   name: string;
   memberCount: number;
-  isJoined: boolean;
+  isJoined?: boolean;
 }) {
   return (
     <Card>

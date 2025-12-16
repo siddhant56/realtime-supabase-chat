@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/services/supabase/components/components/navbar";
 import { Toaster } from "sonner";
+import { AppStoreProvider } from "@/store/Provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       >
-        <Navbar />
-        <main>{children}</main>
-        <Toaster />
+        <AppStoreProvider>
+          <Navbar />
+          <main>{children}</main>
+          <Toaster />
+        </AppStoreProvider>
       </body>
     </html>
   );

@@ -1,0 +1,4 @@
+ DATABASE_URL=postgres://auth_user:auth_password@localhost:5433/auth
+AUTH_JWT_SECRET=your-strong-secret
+AUTH_COOKIE_NAME=auth_token
+FRONTEND_ORIGIN=http://localhost:3000
